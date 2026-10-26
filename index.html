@@ -274,7 +274,8 @@ body[data-screen="quiz"] .pager{opacity:1; pointer-events:auto; transform:none}
 }
 @media (min-width:1416px){ .card-a{grid-column:1/9} .card-b{grid-column:9/-1; --art-h:clamp(140px,min(44.56vw - 431px,29vw,100vh - 520px),440px)} }
 @media (min-width:1843px){ .card-a{grid-column:1/10} .card-b{grid-column:10/-1; --art-h:clamp(140px,min(33.42vw - 416px,29vw,100vh - 520px),440px)} }
-.card{position:relative; isolation:isolate; min-width:0; --pad-t:40px; --pad-x:40px; padding:var(--pad-t) var(--pad-x)}
+.card{position:relative; isolation:isolate; min-width:0; --pad-t:40px; --pad-x:40px; padding:var(--pad-t) var(--pad-x);
+  display:flex; flex-direction:column}
 /* the profile share, in the analysis KPI style, on the card's top right padding corner; its label under it (owner) */
 .card .c-share{position:absolute; top:var(--pad-t); right:var(--pad-x); display:flex; flex-direction:column; align-items:flex-end; gap:8px}
 .card .c-pct{margin-top:0; gap:4px}
@@ -298,7 +299,9 @@ body[data-screen="quiz"] .pager{opacity:1; pointer-events:auto; transform:none}
 }
 .cushion path{fill:var(--cushion)}
 .card .k{font-size:14px; line-height:18px; color:var(--text-label); white-space:nowrap}
-.card h3{margin-top:0; font-size:clamp(26px,2.5vw,36px); line-height:1.05; font-weight:700; letter-spacing:-.025em; white-space:nowrap}
+/* owner ("текст на десктопе высоко"): the name and the copy sit on the card's floor, so in the small card, stretched to
+   the main one's height, they line up with the main card's text instead of hanging under the smaller art */
+.card h3{margin-top:auto; font-size:clamp(26px,2.5vw,36px); line-height:1.05; font-weight:700; letter-spacing:-.025em; white-space:nowrap}
 .card .d{position:relative; margin-top:16px; font-size:16px; line-height:24px; color:var(--text-pill); max-width:30em}
 /* profile art (Figma 300x350): the platform's left corner (x 40) sits on the text edge, the ink ends at y 338 and the
    name stands 24 under it,
@@ -1521,13 +1524,15 @@ function threeLines(el){
   el.style.maxWidth = "none";
   const W = el.clientWidth;
   if (!W || !el.querySelector(".w") || lines(el).length > 3) return;
-  for (let pass = 0; pass < 2; pass++){
-    let lo = Math.floor(W / 4), hi = W;
+  const fit = () => {   // the narrowest width that still holds three lines
+    let lo = 40, hi = W;
     while (hi - lo > 1){ const m = (lo + hi) >> 1; el.style.maxWidth = m + "px"; if (lines(el).length <= 3) hi = m; else lo = m; }
     el.style.maxWidth = hi + "px";
-    const L = lines(el); if (L[L.length - 1].n > 1) return;
-    el.style.maxWidth = "none"; mergeTail(el);
-  }
+  };
+  fit();
+  const L = lines(el);
+  // the glue is measured at this narrow width (at full width there is one line and nothing to glue), then the fit is redone
+  if (L.length > 1 && L[L.length - 1].n < 2){ mergeTail(el); el.style.maxWidth = "none"; fit(); }
 }
 function fitResult(){
   if (screen === "result") document.querySelectorAll("#s-result .card .d").forEach(threeLines);
