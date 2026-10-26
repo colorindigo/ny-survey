@@ -1828,7 +1828,7 @@ function flake(layer, anywhere){
   const size = isCrystal ? SNOW.crystal[layer] : SNOW.dot[layer], v = Math.floor(rr(0, 4));
   return {layer, isCrystal, r:rr(...size), fall:rr(...SNOW.fall[layer]), a:rr(...SNOW.alpha[layer]), fl:rr(...SNOW.flutter[layer]),
     x:rr(-40, sW + 40), y:anywhere ? rr(-40, sH) : rr(-120, -20), vx:0, vy:0, ph:rr(0, 6.28), fr:rr(.35, 1.1),
-    rot:rr(0, 6.28), spin:rr(-.5, .5) / (layer + 1) * 2, tilt:rr(0, 6.28), tiltF:rr(.25, .8),
+    rot:rr(0, 6.28), spin:rr(-.5, .5) / (layer + 1) * 2, tilt:rr(0, 6.28), tiltF:rr(.25, .8), behind:layer < 2 && Math.random() < .5,
     sprite:CRYSTALS[v]};
 }
 function fitSnow(){
@@ -1850,35 +1850,21 @@ function drawDot(f, x, y){
   const R = f.r * (f.layer ? 1.6 : 1.1);
   sctx.drawImage(DOTS[f.layer], x - R, y - R, R * 2, R * 2);
 }
-// The answers stay clear of snow (owner: "не залетали под блоки выбора ответов, чтоб не мешали читать… не топорно, а
-// реалистично"): the air flows around the block of answers. Above it an air cushion (`above` px) slows the fall to
-// nothing at the top edge and turns the flake sideways, out to the nearer side — slow at the middle, fast at the edges,
-// like snow blown off a roof edge; past the edge it falls again, carrying a little of that drift. Along the sides the air
-// breathes out (`side` px), so a gust never carries a flake in. A flake that is inside anyway (born there, or brought in
-// by the pointer) is blown out to the nearer side and melts within `fadeIn` px, so none is ever seen over the text.
-const SNOW_AIR = {above:140, gap:6, spread:40, side:30, centre:60, edge:300, push:260, inside:420, fadeIn:10, carry:.8};
+// Over the answers the snow thins (owner: the flow around them looked like a curtain — "крупные пропускать, а мелкие
+// вдвое меньше пролетают сквозь"): the big front flakes fly on as they are; of the far and mid ones every second flake
+// passes behind the block — it melts away over `fade` px as it enters and comes back the same way below — and the
+// rest fly over it. No flake changes its path, so the fall stays natural; only half as many small ones cross the text.
+const SNOW_THIN = {fade:16};
 function snowObstacle(){
   if (screen !== "quiz") return null;
   const o = $("qstack").querySelector(".q-slide:not(.out) .opts"); if (!o) return null;
   const r = o.getBoundingClientRect(); if (!r.width) return null;
-  return {x0:r.left, x1:r.right, y0:r.top, y1:r.bottom, cx:(r.left + r.right) / 2, hw:r.width / 2};
+  return {x0:r.left, x1:r.right, y0:r.top, y1:r.bottom};
 }
-function snowAir(ob, X, Y, f){
-  const A = SNOW_AIR, side = X < ob.cx ? -1 : 1, ex = Math.abs(X - ob.cx), outX = ex - ob.hw;
-  let ax = 0, ay = 0, fade = 1;
-  if (Y <= ob.y0 - A.above || Y >= ob.y1) return {ax, ay, fade};
-  if (outX < 0 && Y >= ob.y0){   // inside: out to the nearer side, melting by the depth
-    const depth = Math.min(-outX, Y - ob.y0, ob.y1 - Y);
-    return {ax:side * A.inside, ay:-f.fall * .5, fade:Math.max(0, 1 - depth / A.fadeIn)};
-  }
-  if (Y < ob.y0 && outX < A.spread){   // the cushion above: the fall eases out, the flake turns to the side
-    // full at `gap` px above the edge; it holds the fall and the flutter's downward swing, so nothing dips in
-    const p = Math.min(1, 1 - (ob.y0 - A.gap - Y) / A.above), q = outX < 0 ? 1 : 1 - outX / A.spread, e = p * p * (3 - 2 * p) * q;
-    ay = -(f.fall + 3 * (f.layer + 1) / 3) * e;
-    ax = side * (A.centre + (A.edge - A.centre) * Math.min(1, ex / ob.hw)) * e;
-  }
-  if (outX >= 0 && outX < A.side){ const k = 1 - outX / A.side; ax += side * A.push * k * k; }   // along the sides
-  return {ax, ay, fade};
+function snowThin(ob, X, Y, f){   // the share of a flake left visible over the block
+  if (!f.behind || X <= ob.x0 || X >= ob.x1 || Y <= ob.y0 || Y >= ob.y1) return 1;
+  const depth = Math.min(X - ob.x0, ob.x1 - X, Y - ob.y0, ob.y1 - Y), k = Math.min(1, depth / SNOW_THIN.fade);
+  return 1 - k * k * (3 - 2 * k);
 }
 function snowStep(now){
   const t = now / 1000, dt = Math.max(0, Math.min(.05, lastT ? t - lastT : 0)); lastT = t;  // never backwards, never a jump
@@ -1903,12 +1889,11 @@ function snowStep(now){
       f.ph += f.fr * dt; f.rot += f.spin * dt; f.tilt += f.tiltF * dt;
       f.x += (w * (.35 + depth * .65) + Math.cos(f.ph) * f.fl * .6 + f.vx) * dt;
       f.y += (f.fall + Math.sin(f.ph * 2) * 3 * depth + f.vy) * dt;
-      const air = ob ? snowAir(ob, X, Y, f) : null;
-      if (air){ f.x += air.ax * dt; f.y += air.ay * dt; f.vx += air.ax * SNOW_AIR.carry * dt; }
+      const vis = ob ? snowThin(ob, f.x + o.x, f.y + o.y, f) : 1;
       const pad = f.isCrystal ? f.r * 2.4 : 10;
       if (f.y - pad > sH + 40 || f.x < -pad - 80 || f.x > sW + pad + 80){ Object.assign(f, flake(layer, false)); f.x = rr(0, sW); }
-      sctx.globalAlpha = f.a * (air ? air.fade : 1);
-      if (air && !air.fade) continue;
+      if (!vis) continue;
+      sctx.globalAlpha = f.a * vis;
       if (!f.isCrystal) drawDot(f, f.x + o.x, f.y + o.y);
       else {
         // a crystal tumbles: its width breathes with the tilt while it spins
