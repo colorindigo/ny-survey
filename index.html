@@ -20,8 +20,8 @@
   --ring-glass:rgba(255,255,255,.5);
   --hairline:#1a1a1a;
   --pager:#2b2b2b;    /* white 17% over black, solid so the background lines stay behind it */
-  --cushion:#1a1a1a;
-  --veil:rgba(0,0,0,.64);  /* modal veil over the page, blurred behind */  /* white 10% over black, solid for the same reason */
+  --cushion:#1a1a1a;  /* white 10% over black, solid for the same reason */
+  --veil:rgba(0,0,0,.8);  /* modal veil over the page, blurred and greyed behind; owner: darker (was .64) */
   --text:#fff;
   --text-pill:#cfcfcf;
   --text-frac:#959595;
@@ -329,7 +329,8 @@ body[data-screen="quiz"] .pager{opacity:1; pointer-events:auto; transform:none}
 /* --- thanks popup: the last screen of the flow, one modal layer; panel in the card shape, the profile art on top --- */
 .modal{position:fixed; inset:0; z-index:30; display:grid; place-items:safe center; padding:24px var(--margin); overflow-y:auto}
 .modal[hidden]{display:none}
-.veil{position:fixed; inset:0; background:var(--veil); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px)}
+.veil{position:fixed; inset:0; background:var(--veil); -webkit-backdrop-filter:blur(12px) grayscale(1); backdrop-filter:blur(12px) grayscale(1)}
+/* owner: behind the popup the page goes black and white; it fades in with the veil */
 .m-panel{position:relative; isolation:isolate; width:min(100%, 600px); --pad-t:48px; --pad-x:48px; padding:var(--pad-t) var(--pad-x);
   /* the cards' art size, capped at 30% of the viewport height so the popup fits a short laptop screen */
   --art-h:clamp(160px,min(max(260px,26vw),30vh),360px); --art-out:calc(var(--art-h) * .18); margin-top:var(--art-out);
